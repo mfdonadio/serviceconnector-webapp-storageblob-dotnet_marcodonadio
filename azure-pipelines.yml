@@ -9,7 +9,7 @@ variables:
   dotnetVersion: '9.x'
 
   # Completar posteriormente
-  azureSubscription: '6cf2b1a5-3c17-462c-ad9a-d3af7a75c1c4'
+  azureSubscription: 'MIA_connection'
   appName: 'miaazuremd'
 
 steps:
