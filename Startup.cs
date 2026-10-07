@@ -8,21 +8,29 @@ using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Azure.Core;
+using Azure.Identity;
 
 namespace WebStorageSample
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
+            Environment = environment;
         }
+
+        private IWebHostEnvironment Environment { get; }
 
         public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddSingleton<TokenCredential>(_ => Environment.IsDevelopment()
+                ? (TokenCredential)new AzureCliCredential()
+                : new DefaultAzureCredential());
             services.AddRazorPages();
         }
 

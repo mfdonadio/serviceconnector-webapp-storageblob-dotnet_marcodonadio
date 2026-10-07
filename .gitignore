@@ -370,3 +370,6 @@ src/Cupertino.Web/Properties/serviceDependencies.*.json
 
 .azure/
 **/ServiceDependencies/
+# Local environment configuration
+.env
+.env.local

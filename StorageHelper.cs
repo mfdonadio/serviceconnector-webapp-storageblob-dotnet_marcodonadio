@@ -3,16 +3,17 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Azure.Identity;
+using Azure.Core;
 using Azure.Storage.Blobs;
 
 namespace WebStorageSample
 {
     public class StorageHelper
     {
-        static public async Task UploadBlob(string containerEndpoint, string containerName, string blobName, string blobContents)
+        static public async Task UploadBlob(string containerEndpoint, string containerName, string blobName, string blobContents, TokenCredential credential)
         {
             var blobContainerUri = new Uri(new Uri(containerEndpoint), containerName);
-            BlobContainerClient containerClient = new BlobContainerClient(blobContainerUri, new DefaultAzureCredential());
+            BlobContainerClient containerClient = new BlobContainerClient(blobContainerUri, credential);
 
             try
             {
@@ -29,16 +30,16 @@ namespace WebStorageSample
                     await blobClient.UploadAsync(stream, overwrite: true);
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                throw e;
+                throw;
             }
         }
 
-        static public async Task<string> GetBlob(string containerEndpoint, string containerName, string blobName)
+        static public async Task<string> GetBlob(string containerEndpoint, string containerName, string blobName, TokenCredential credential)
         {
             var blobContainerUri = new Uri(new Uri(containerEndpoint), containerName);
-            BlobContainerClient containerClient = new BlobContainerClient(blobContainerUri, new DefaultAzureCredential());
+            BlobContainerClient containerClient = new BlobContainerClient(blobContainerUri, credential);
 
             try
             {
@@ -61,9 +62,9 @@ namespace WebStorageSample
                 }
                 return "";
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                throw e;
+                throw;
             }
         }
     }

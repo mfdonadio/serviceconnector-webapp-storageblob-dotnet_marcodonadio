@@ -28,11 +28,6 @@ steps:
     command: 'restore'
     projects: '**/*.csproj'
 
-# 3. Configurar ambiente de producción
-- powershell: |
-    Copy-Item ".env.production" ".env" -Force
-  displayName: 'Configurar .env de producción'
-
 # 4. Compilar
 - task: DotNetCoreCLI@2
   displayName: 'Compilar aplicación'
