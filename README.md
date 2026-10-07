@@ -60,3 +60,6 @@ You will see `Hello Service Connector! Current is {UTC Time Now}.`
 ```azurecli
 az group delete -n <myResourceGroupName> --yes
 ```
+
+
+MARCO DONADIO --- PRUEBAS 2026 :D
