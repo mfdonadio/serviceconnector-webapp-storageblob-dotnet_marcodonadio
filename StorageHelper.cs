@@ -2,14 +2,32 @@
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 using Azure.Identity;
 using Azure.Core;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 namespace WebStorageSample
 {
     public class StorageHelper
     {
+        // Preserve binary data and reject existing blob names atomically.
+        static public async Task UploadBlob(string containerEndpoint, string containerName, string blobName,
+            Stream contents, TokenCredential credential, CancellationToken cancellationToken = default)
+        {
+            var blobContainerUri = new Uri(new Uri(containerEndpoint), containerName);
+            var containerClient = new BlobContainerClient(blobContainerUri, credential);
+            await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+
+            var blobClient = containerClient.GetBlobClient(blobName);
+            await blobClient.UploadAsync(contents, new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders { ContentType = "application/octet-stream" },
+                Conditions = new BlobRequestConditions { IfNoneMatch = Azure.ETag.All }
+            }, cancellationToken);
+        }
+
         static public async Task UploadBlob(string containerEndpoint, string containerName, string blobName, string blobContents, TokenCredential credential)
         {
             var blobContainerUri = new Uri(new Uri(containerEndpoint), containerName);

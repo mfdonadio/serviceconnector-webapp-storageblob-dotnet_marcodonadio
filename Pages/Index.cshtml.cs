@@ -1,20 +1,29 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Azure.Core;
+using Azure;
+using Microsoft.AspNetCore.Http;
 
 namespace WebStorageSample.Pages
 {
+    [RequestSizeLimit(MaxFileSize + 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxFileSize + 1024 * 1024)]
     public class IndexModel : PageModel
     {
+        public const long MaxFileSize = 20 * 1024 * 1024;
         private readonly ILogger<IndexModel> _logger;
         private readonly TokenCredential _credential;
 
-        public string DisplayWords { get; private set; }
+        [BindProperty]
+        public IFormFile UploadedFile { get; set; }
+
+        [TempData]
+        public string SuccessMessage { get; set; }
 
         public IndexModel(ILogger<IndexModel> logger, TokenCredential credential)
         {
@@ -22,12 +31,67 @@ namespace WebStorageSample.Pages
             _credential = credential;
         }
 
-        public async Task OnGetAsync()
+        public void OnGet()
         {
-            string content = string.Format("Hello Service Connector! UTC Now: {0}.", DateTimeOffset.UtcNow.ToString());
+        }
 
-            await StorageHelper.UploadBlob(Environment.GetEnvironmentVariable(Const.ENDPOINT_ENV_KEY), Const.CONTAINER_NAME, Const.BLOB_NAME, content, _credential);
-            DisplayWords = await StorageHelper.GetBlob(Environment.GetEnvironmentVariable(Const.ENDPOINT_ENV_KEY), Const.CONTAINER_NAME, Const.BLOB_NAME, _credential);
+        public async Task<IActionResult> OnPostAsync()
+        {
+            if (UploadedFile == null)
+            {
+                ModelState.AddModelError(string.Empty, "Selecciona un archivo antes de subirlo.");
+                return Page();
+            }
+
+            if (UploadedFile.Length > MaxFileSize)
+            {
+                ModelState.AddModelError(string.Empty, "El archivo supera el límite de 20 MB. Selecciona uno más pequeño.");
+                return Page();
+            }
+
+            // Strip client-supplied paths on Windows and Linux, preserving the filename.
+            string fileName = Path.GetFileName(UploadedFile.FileName.Replace('\\', '/'));
+            if (string.IsNullOrWhiteSpace(fileName) || fileName.Length > 1024 || fileName.Any(char.IsControl))
+            {
+                ModelState.AddModelError(string.Empty, "El nombre del archivo no es válido. Renómbralo y vuelve a intentarlo.");
+                return Page();
+            }
+
+            if (!ModelState.IsValid)
+                return Page();
+
+            string endpoint = Environment.GetEnvironmentVariable(Const.ENDPOINT_ENV_KEY);
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                _logger.LogError("Storage endpoint {EnvironmentKey} is not configured.", Const.ENDPOINT_ENV_KEY);
+                ModelState.AddModelError(string.Empty, "El almacenamiento no está configurado. Contacta al administrador.");
+                return Page();
+            }
+
+            try
+            {
+                using (var stream = UploadedFile.OpenReadStream())
+                {
+                    await StorageHelper.UploadBlob(endpoint, Const.CONTAINER_NAME, fileName,
+                        stream, _credential, HttpContext.RequestAborted);
+                }
+
+                SuccessMessage = $"El archivo «{fileName}» se subió correctamente.";
+                // Refreshing the result must not upload the file again.
+                return RedirectToPage();
+            }
+            catch (RequestFailedException exception) when (exception.ErrorCode == "BlobAlreadyExists"
+                || exception.ErrorCode == "ConditionNotMet")
+            {
+                ModelState.AddModelError(string.Empty, "Ya existe un archivo con ese nombre. Renómbralo y vuelve a intentarlo.");
+            }
+            catch (Exception exception) when (!(exception is OperationCanceledException))
+            {
+                _logger.LogError(exception, "File upload failed.");
+                ModelState.AddModelError(string.Empty, "No se pudo subir el archivo. Vuelve a intentarlo; si el problema continúa, contacta al administrador.");
+            }
+
+            return Page();
         }
     }
 }
